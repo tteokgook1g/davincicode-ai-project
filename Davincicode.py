@@ -1,6 +1,8 @@
 #This program is AI of a boardgame, "Davinci Code".
 #Each tile corresponds to one number. 2*tile_number+color, joker's tile_number:100
 
+# 다빈치코드 2인게임 AI 프로그램
+
 import re
 
 
@@ -111,7 +113,7 @@ class OppTile:
         else:
             self.cases = set(range(0, 24)[0::2])
 
-    def open_tile(self, opened, tile_id=-1):
+    def open_tile(self, opened, tile_id):
         if opened:
             self.tile = tile_id
             self.opened = opened
@@ -128,15 +130,19 @@ class OppTile:
             self.cases.add(i)
 
     def colorb(self):
+        if self.opened:
+            return True if self.tile % 2 else False
         return True if list(self.cases)[0] % 2 else False
 
     def colors(self):
+        if self.opened:
+            return "White" if self.tile % 2 else "Black"
         return "White" if list(self.cases)[0] % 2 else "Black"
 
     def show(self):
         if self.opened:
             print("< OppTile | {0} {1} , opened >".format(
-                "White" if self.tile % 2 else "Black", self.tile//2))
+                self.colors(), self.tile//2))
         else:
             num_cases = set([])
             for case in list(self.cases):
@@ -147,10 +153,9 @@ class OppTile:
     def showall(self):
         if self.opened:
             print("< OppTile | number : {0} , color : {1} , opened : {2} , tile id : {3} >".format(
-                self.tile//2, "White" if self.tile % 2 else "Black", True, self.tile))
+                self.tile//2, self.colors(), True, self.tile))
         else:
-            print("< OppTile | color : {0} , cases : {1} >".format(
-                "White" if sorted(list(self.cases))[0] % 2 else "Black", str(self.cases)))
+            print("< OppTile | color : {0} , cases : {1} >".format(self.colors(), str(self.cases)))
 
 
 class OppTiles:
@@ -226,17 +231,17 @@ class AIGamer:
         self.mts = MyTiles()
         self.opmts = OppTiles()
         self.ots = OppTiles()
-        self.num_of_pile = [12, 12]
+        self.num_of_pile = [12, 12] # 남은 타일의 개수 [검정, 하양]
 
     def mts_insert(self, tile):
         self.mts.insert(tile)
-        self.opmts.insert(OppTile(tile.tile % 2), self.mts.mytiles.index(tile))
+        self.opmts.insert(OppTile(tile.colorb()), self.mts.mytiles.index(tile))
         self.ots.delete_case([tile.tile])
-        self.num_of_pile[tile.tile % 2] -= 1
+        self.num_of_pile[tile.colorb()] -= 1
 
     def ots_insert(self, tile, index=-1):
         self.ots.insert(tile, index)
-        self.num_of_pile[list(tile.cases)[0] % 2] -= 1
+        self.num_of_pile[tile.colorb()] -= 1
 
     def mts_open_tile(self, index):
         self.mts.mytiles[index].open_tile(True)
@@ -372,6 +377,8 @@ class AIGamer:
                 self.opmts.show()
                 print("Opponent's tiles----------------------")
                 self.ots.show()
+                print("Pile----------------------------------")
+                print("{0} black tiles, {1} white tiles".format(self.num_of_pile[0],self.num_of_pile[1]))
 
             elif command == "showall":
                 print("My tiles------------------------------")
@@ -408,7 +415,6 @@ class AIGamer:
 
 # while True:
 #     print(re.match('^#\d{1,2} (black|white) (\d|1[01])$',input()))
-
 
 my = AIGamer()
 my.start()
