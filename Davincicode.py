@@ -6,13 +6,13 @@
 import re
 
 
-def id_to_tile(tile_id):
+def id_to_tilestr(tile_id):
     msg = "white "if tile_id % 2 else "black "
     msg += str(tile_id//2)
     return msg
 
 
-def tile_to_id(tile_str):
+def tilestr_to_id(tile_str):
     msg = tile_str.split()
     if len(msg) != 2:
         return -1
@@ -90,9 +90,9 @@ class MyTiles:
             self.mytiles.append(tile)
 
     def num_non_opened(self):
-        num=0
+        num = 0
         for t in self.mytiles:
-            num+=int(not t.opened)
+            num += int(not t.opened)
         return num
 
     def show(self):
@@ -155,7 +155,8 @@ class OppTile:
             print("< OppTile | number : {0} , color : {1} , opened : {2} , tile id : {3} >".format(
                 self.tile//2, self.colors(), True, self.tile))
         else:
-            print("< OppTile | color : {0} , cases : {1} >".format(self.colors(), str(self.cases)))
+            print("< OppTile | color : {0} , cases : {1} >".format(
+                self.colors(), str(self.cases)))
 
 
 class OppTiles:
@@ -185,17 +186,17 @@ class OppTiles:
     def open_tile(self, index, tile_id):
         self.opptiles[index].open_tile(True, tile_id)
         self.reason_case()
-    
+
     def num_non_opened(self):
-        num=0
+        num = 0
         for t in self.opptiles:
-            num+=int(not t.opened)
+            num += int(not t.opened)
         return num
 
-    def index_non_opened(self,index):
-        non_opened_index=0
-        for i in list(range(0,index)):
-            non_opened_index+=int(not self.opptiles[i].opened)
+    def index_non_opened(self, index):
+        non_opened_index = 0
+        for i in list(range(0, index)):
+            non_opened_index += int(not self.opptiles[i].opened)
         return non_opened_index
 
     def reason_case(self):
@@ -231,13 +232,14 @@ class AIGamer:
         self.mts = MyTiles()
         self.opmts = OppTiles()
         self.ots = OppTiles()
-        self.num_of_pile = [12, 12] # 남은 타일의 개수 [검정, 하양]
+        self.num_of_pile = [12, 12]  # 남은 타일(더미)의 개수 [검정, 하양]
 
     def mts_insert(self, tile):
         self.mts.insert(tile)
         self.opmts.insert(OppTile(tile.colorb()), self.mts.mytiles.index(tile))
         self.ots.delete_case([tile.tile])
         self.num_of_pile[tile.colorb()] -= 1
+        return self.mts.mytiles.index(tile)
 
     def ots_insert(self, tile, index=-1):
         self.ots.insert(tile, index)
@@ -249,6 +251,13 @@ class AIGamer:
 
     def ots_open_tile(self, index, tile_id):
         self.ots.open_tile(index, tile_id)
+
+    def mytile_value(self, index):
+        if self.opmts.opptiles[index].opened:
+            return -1
+        n = len(self.opmts.opptiles[index].cases)
+        len_non_opened = self.opmts.num_non_opened()
+        return (n-1)(len_non_opened+1)/2
 
     def reason(self):
         min_case = (0, 25)
@@ -263,28 +272,33 @@ class AIGamer:
             command = input("command : ")
 
             if command == "myturn":
-                if self.num_of_pile[1] > self.num_of_pile[0]:
-                    print("get white tile")
-                    new_id = tile_to_id(
-                        "white "+inputf("Please write new tile's number. ex) 4\n", '^(\d|1[01])$'))
+                if self.num_of_pile == [0, 0]:
+                    mytile_values = [self.mytile_value(
+                        i) for i in range(0, len(self.opmts.opptiles))]
+                    mytile_index_to_open = mytile_values.index(
+                        max(mytile_values))
                 else:
-                    print("get black tile")
-                    new_id = tile_to_id(
-                        "black "+inputf("Please write new tile's number. ex) 4\n", '^(\d|1[01])$'))
-                self.mts_insert(MyTile(new_id))
-                new_cases = len(
-                    self.opmts.opptiles[self.mts.mytiles.index(MyTile(new_id))].cases)
+                    if self.num_of_pile[1] > self.num_of_pile[0]:
+                        print("get white tile")
+                        mytile_index_to_open = self.mts_insert(MyTile(tilestr_to_id(
+                            "white "+inputf("Please write new tile's number. ex) 4\n", '^(\d|1[01])$'))))
+                    else:
+                        print("get black tile")
+                        mytile_index_to_open = self.mts_insert(MyTile(tilestr_to_id(
+                            "black "+inputf("Please write new tile's number. ex) 4\n", '^(\d|1[01])$'))))
+
+                mytile_value_to_open = self.mytile_value(mytile_index_to_open)
 
                 #first guess
                 guess = self.reason()
                 print("Guess #{0} tile : {1}".format(
-                    guess[0]+1, id_to_tile(guess[1])))
+                    guess[0]+1, id_to_tilestr(guess[1])))
 
                 result = inputf(
                     "Please write the result. ex) right or wrong\n", '^(right|wrong)$')
                 if result == "right":
                     self.ots.open_tile(guess[0], guess[1])
-                    if self.ots.num_non_opened()==0:
+                    if self.ots.num_non_opened() == 0:
                         print("game ends")
                         print("I win")
                         return
@@ -292,59 +306,61 @@ class AIGamer:
                     while True:
                         guess = self.reason()
                         # 추가로 추측할 조건 - 얻을 수 있는 정보 개수와 내 타일의 가치 비교 추가해야 함
-                        if guess[2] == 1 or new_cases == 1:
+                        if guess[2] == 1 or mytile_value_to_open == 0:
                             print("Guess #{0} tile : {1}".format(
-                                guess[0]+1, id_to_tile(guess[1])))
+                                guess[0]+1, id_to_tilestr(guess[1])))
                             result = inputf(
                                 "Please write the result. ex) right or wrong\n", '^(right|wrong)$')
                             if result == "right":
                                 self.ots.open_tile(guess[0], guess[1])
-                                if self.ots.num_non_opened()==0:
+                                if self.ots.num_non_opened() == 0:
                                     print("game ends")
                                     print("I win")
                                     return
                             else:
                                 self.ots.opptiles[guess[0]].delete_case(
                                     [guess[1]])
-                                self.mts.mytiles[self.mts.mytiles.index(
-                                    MyTile(new_id))].open_tile(True)
+                                self.mts.mytiles[mytile_index_to_open].open_tile(
+                                    True)
                                 break
                         else:
                             print("stop guessing")
                             break
                 else:
                     self.ots.opptiles[guess[0]].delete_case([guess[1]])
-                    self.mts.mytiles[self.mts.mytiles.index(
-                        MyTile(new_id))].open_tile(True)
+                    self.mts.mytiles[mytile_index_to_open].open_tile(True)
+                    print("open #{0} tile".format(mytile_index_to_open))
 
             elif command == "oppturn":
-                newtile_msg = inputf(
-                    "please write opponent's new tile ex) #1 black , #3 white\n", '^#\d{1,2} (black|white)$')
-                self.ots_insert(OppTile(newtile_msg.split()[1] == "white"), int(
-                    newtile_msg.split()[0][1:])-1)
+                if not self.num_of_pile == [0, 0]:
+                    newtile_msg = inputf(
+                        "please write opponent's new tile ex) #1 black , #3 white\n", '^#\d{1,2} (black|white)$')
+                    self.ots_insert(OppTile(newtile_msg.split()[1] == "white"), int(
+                        newtile_msg.split()[0][1:])-1)
                 #first guess
                 oppguess_msg = inputf(
                     "please write opponent's guess ex) #1 black 5 , #4 white 10\n", '^#\d{1,2} (black|white) (\d|1[01])$')
                 oppguess = [int(oppguess_msg.split()[0][1:])-1,
-                            tile_to_id(oppguess_msg[oppguess_msg.index(' ')+1:])]
+                            tilestr_to_id(oppguess_msg[oppguess_msg.index(' ')+1:])]
                 if self.mts.mytiles[oppguess[0]].tile == oppguess[1]:
                     print("right")
                     self.mts_open_tile(oppguess[0])
-                    if self.mts.num_non_opened()==0:
+                    if self.mts.num_non_opened() == 0:
                         print("game ends")
                         print("I lose")
                         return
                     #additional guess
                     while True:
-                        oppguess_msg = inputf("please write opponent's guess. if opponent aren't reasoning, write 'pass' ex) #1 black 5 , #4 white 10\n", '^(pass|(#\d{1,2} (black|white) (\d|1[01])))$')
-                        if oppguess_msg=='pass':
+                        oppguess_msg = inputf(
+                            "please write opponent's guess. if opponent aren't reasoning, write 'pass' ex) #1 black 5 , #4 white 10\n", '^(pass|(#\d{1,2} (black|white) (\d|1[01])))$')
+                        if oppguess_msg == 'pass':
                             break
                         oppguess = [int(oppguess_msg.split()[0][1:])-1,
-                                    tile_to_id(oppguess_msg[oppguess_msg.index(' ')+1:])]
+                                    tilestr_to_id(oppguess_msg[oppguess_msg.index(' ')+1:])]
                         if self.mts.mytiles[oppguess[0]].tile == oppguess[1]:
                             print("right")
                             self.mts_open_tile(oppguess[0])
-                            if self.mts.num_non_opened()==0:
+                            if self.mts.num_non_opened() == 0:
                                 print("game ends")
                                 print("I lose")
                                 return
@@ -354,10 +370,10 @@ class AIGamer:
                             for ot in self.ots.opptiles:
                                 if not ot.opened:
                                     ot.delete_case([oppguess[1]])
-                            optile = int(
-                                inputf("please write opponent's tile number ex) 5 , 11\n", '^(\d|1[01])$'))
-                            self.ots.open_tile(int(newtile_msg.split()[
-                                            0][1:])-1, int(newtile_msg.split()[1] == "white")+2*optile)
+                            opptile_msg = inputf(
+                                "please write the tile that opponent opened ex) #1 black 5 , #4 white 10\n", '^#\d{1,2} (black|white) (\d|1[01])$')
+                            opptile = [int(opptile_msg.split()[
+                                           0][1:])-1, tilestr_to_id(opptile_msg[opptile_msg.index(' ')+1:])]
                             break
                 else:
                     print("wrong")
@@ -365,10 +381,11 @@ class AIGamer:
                     for ot in self.ots.opptiles:
                         if not ot.opened:
                             ot.delete_case([oppguess[1]])
-                    optile = int(
-                        inputf("please write opponent's tile number ex) 5 , 11\n", '^(\d|1[01])$'))
-                    self.ots.open_tile(int(newtile_msg.split()[
-                                       0][1:])-1, int(newtile_msg.split()[1] == "white")+2*optile)
+                    opptile_msg = inputf(
+                        "please write the tile that opponent opened ex) #1 black 5 , #4 white 10\n", '^#\d{1,2} (black|white) (\d|1[01])$')
+                    opptile = [int(opptile_msg.split()[0][1:])-1,
+                               tilestr_to_id(opptile_msg[opptile_msg.index(' ')+1:])]
+                    self.ots.open_tile(opptile[0], opptile[1])
 
             elif command == "show":
                 print("My tiles------------------------------")
@@ -378,7 +395,8 @@ class AIGamer:
                 print("Opponent's tiles----------------------")
                 self.ots.show()
                 print("Pile----------------------------------")
-                print("{0} black tiles, {1} white tiles".format(self.num_of_pile[0],self.num_of_pile[1]))
+                print("{0} black tiles, {1} white tiles".format(
+                    self.num_of_pile[0], self.num_of_pile[1]))
 
             elif command == "showall":
                 print("My tiles------------------------------")
@@ -387,7 +405,9 @@ class AIGamer:
                 self.opmts.showall()
                 print("Opponent's tiles----------------------")
                 self.ots.showall()
-
+                print("Pile----------------------------------")
+                print("{0} black tiles, {1} white tiles".format(
+                    self.num_of_pile[0], self.num_of_pile[1]))
             elif command == "gamestart":
                 self.mts = MyTiles()
                 self.opmts = OppTiles()
@@ -397,7 +417,7 @@ class AIGamer:
                 print("Please enter your 4 tiles. ex) black 7 , white 2")
                 for i in range(0, 4):
                     self.mts_insert(
-                        MyTile(tile_to_id(inputf("", '^((white|black) (\d{1}|1[01]{1}))$'))))
+                        MyTile(tilestr_to_id(inputf("", '^((white|black) (\d{1}|1[01]{1}))$'))))
 
                 print(
                     "Please enter the 4 colors of the opponent's tile in order. ex) black , white")
@@ -415,6 +435,7 @@ class AIGamer:
 
 # while True:
 #     print(re.match('^#\d{1,2} (black|white) (\d|1[01])$',input()))
+
 
 my = AIGamer()
 my.start()
