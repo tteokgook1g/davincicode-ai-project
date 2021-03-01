@@ -89,7 +89,7 @@ class MyTiles:
         else:
             self.mytiles.append(tile)
 
-    def num_non_opened(self):
+    def len_non_opened(self):
         num = 0
         for t in self.mytiles:
             num += int(not t.opened)
@@ -187,7 +187,7 @@ class OppTiles:
         self.opptiles[index].open_tile(True, tile_id)
         self.reason_case()
 
-    def num_non_opened(self):
+    def len_non_opened(self):
         num = 0
         for t in self.opptiles:
             num += int(not t.opened)
@@ -254,19 +254,24 @@ class AIGamer:
 
     def mytile_value(self, index):
         if self.opmts.opptiles[index].opened:
-            return -1
+            return 10000
         n = len(self.opmts.opptiles[index].cases)
-        len_non_opened = self.opmts.num_non_opened()
-        return (n-1)(len_non_opened+1)/2
+        len_non_opened = self.opmts.len_non_opened()
+        return (n-1)*(len_non_opened+1)/2
+
+    def guessing_value(self,index):
+        if self.ots.opptiles[index].opened:
+            return -1
+        return 1+num_of_clue(self.ots.len_non_opened(),self.ots.index_non_opened(index))[0]
 
     def reason(self):
-        min_case = (0, 25)
-        for ot in self.ots.opptiles:
+        best_play=(0,-1) #[0]=index, [1]=value
+        for idx, ot in enumerate(self.ots.opptiles):
             if ot.opened == False:
-                if len(ot.cases) < min_case[1]:
-                    min_case = (ot, len(ot.cases))
-        return (self.ots.opptiles.index(min_case[0]), sorted(list(min_case[0].cases))[num_of_clue(self.ots.num_non_opened(), self.ots.index_non_opened(self.ots.opptiles.index(min_case[0])))[1]-1], min_case[1])
-
+                if self.guessing_value(idx) > best_play[1] or (self.guessing_value(idx)==best_play[1] and len(ot.cases)<len(self.ots.opptiles[best_play[0]].cases)):
+                    best_play=(idx,self.guessing_value(idx))
+        return (best_play[0], sorted(list(self.ots.opptiles[best_play[0]].cases))[num_of_clue(self.ots.len_non_opened(), self.ots.index_non_opened(best_play[0]))[1]-1], best_play[1])
+        
     def start(self):
         while True:
             command = input("command : ")
@@ -276,7 +281,7 @@ class AIGamer:
                     mytile_values = [self.mytile_value(
                         i) for i in range(0, len(self.opmts.opptiles))]
                     mytile_index_to_open = mytile_values.index(
-                        max(mytile_values))
+                        min(mytile_values))
                 else:
                     if self.num_of_pile[1] > self.num_of_pile[0]:
                         print("get white tile")
@@ -298,14 +303,14 @@ class AIGamer:
                     "Please write the result. ex) right or wrong\n", '^(right|wrong)$')
                 if result == "right":
                     self.ots.open_tile(guess[0], guess[1])
-                    if self.ots.num_non_opened() == 0:
+                    if self.ots.len_non_opened() == 0:
                         print("game ends")
                         print("I win")
                         return
                     #additional guess
                     while True:
                         guess = self.reason()
-                        # 추가로 추측할 조건 - 얻을 수 있는 정보 개수와 내 타일의 가치 비교 추가해야 함
+                        # 추가로 추측할 조건
                         if guess[2] == 1 or mytile_value_to_open == 0:
                             print("Guess #{0} tile : {1}".format(
                                 guess[0]+1, id_to_tilestr(guess[1])))
@@ -313,7 +318,7 @@ class AIGamer:
                                 "Please write the result. ex) right or wrong\n", '^(right|wrong)$')
                             if result == "right":
                                 self.ots.open_tile(guess[0], guess[1])
-                                if self.ots.num_non_opened() == 0:
+                                if self.ots.len_non_opened() == 0:
                                     print("game ends")
                                     print("I win")
                                     return
@@ -329,7 +334,7 @@ class AIGamer:
                 else:
                     self.ots.opptiles[guess[0]].delete_case([guess[1]])
                     self.mts.mytiles[mytile_index_to_open].open_tile(True)
-                    print("open #{0} tile".format(mytile_index_to_open))
+                    print("open #{0} tile".format(mytile_index_to_open+1))
 
             elif command == "oppturn":
                 if not self.num_of_pile == [0, 0]:
@@ -345,7 +350,7 @@ class AIGamer:
                 if self.mts.mytiles[oppguess[0]].tile == oppguess[1]:
                     print("right")
                     self.mts_open_tile(oppguess[0])
-                    if self.mts.num_non_opened() == 0:
+                    if self.mts.len_non_opened() == 0:
                         print("game ends")
                         print("I lose")
                         return
@@ -360,7 +365,7 @@ class AIGamer:
                         if self.mts.mytiles[oppguess[0]].tile == oppguess[1]:
                             print("right")
                             self.mts_open_tile(oppguess[0])
-                            if self.mts.num_non_opened() == 0:
+                            if self.mts.len_non_opened() == 0:
                                 print("game ends")
                                 print("I lose")
                                 return
@@ -426,6 +431,16 @@ class AIGamer:
                         "", '^(white|black)$') == "white" else False))
 
                 print("The game started normally.")
+                #command == show
+                print("My tiles------------------------------")
+                self.mts.show()
+                print("My tiles the other side saw-----------")
+                self.opmts.show()
+                print("Opponent's tiles----------------------")
+                self.ots.show()
+                print("Pile----------------------------------")
+                print("{0} black tiles, {1} white tiles".format(
+                    self.num_of_pile[0], self.num_of_pile[1]))
 
             elif command == "quit":
                 return
